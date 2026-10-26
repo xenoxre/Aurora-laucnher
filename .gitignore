@@ -1,0 +1,20 @@
+# Build
+/build/
+/build-*/
+/out/
+/install/
+
+# IDE
+/.vscode/
+/.idea/
+*.user
+
+# Runtime
+/data/
+*.log
+*.tmp
+*.part
+
+# OS
+Thumbs.db
+desktop.ini
