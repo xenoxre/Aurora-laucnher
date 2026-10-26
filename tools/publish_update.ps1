@@ -69,7 +69,7 @@ function Get-Asset([string]$path, [string]$name) {
     $item = Get-Item $path
     $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
     return [ordered]@{
-        url    = "https://raw.githubusercontent.com/$Repo/$Branch/dist/$name"
+        url    = "https://raw.githubusercontent.com/$Repo/$Branch/dist/$name`?v=$Version"
         size   = [long]$item.Length
         sha256 = $hash
     }

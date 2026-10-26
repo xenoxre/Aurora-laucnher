@@ -14,6 +14,8 @@
 #include <shellapi.h>
 
 #include <cstdio>
+#include <cstring>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -68,6 +70,31 @@ std::wstring quoteArg(const std::wstring& arg) {
 bool fileExists(const std::wstring& path) {
     const DWORD attrs = GetFileAttributesW(path.c_str());
     return attrs != INVALID_FILE_ATTRIBUTES && !(attrs & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+bool isPortableExecutable(const std::wstring& path) {
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    unsigned char header[64] = {};
+    DWORD read = 0;
+    bool ok = ReadFile(file, header, (DWORD)sizeof(header), &read, nullptr) &&
+              read == (DWORD)sizeof(header) && header[0] == 'M' && header[1] == 'Z';
+    if (ok) {
+        int32_t peOffset = 0;
+        std::memcpy(&peOffset, header + 0x3C, sizeof(peOffset));
+        ok = peOffset > 0 && peOffset < 0x1000000;
+        if (ok) {
+            unsigned char signature[4] = {};
+            ok = SetFilePointer(file, peOffset, nullptr, FILE_BEGIN) != INVALID_SET_FILE_POINTER &&
+                 ReadFile(file, signature, 4, &read, nullptr) && read == 4 &&
+                 signature[0] == 'P' && signature[1] == 'E' && signature[2] == 0 &&
+                 signature[3] == 0;
+        }
+    }
+    CloseHandle(file);
+    return ok;
 }
 
 void sleepMs(DWORD ms) { Sleep(ms); }
@@ -238,6 +265,9 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     };
 
     if (!fileExists(opt.source)) return fail(L"Le nouveau lanceur telecharge est introuvable.", true);
+    if (!isPortableExecutable(opt.source)) {
+        return fail(L"Le nouveau lanceur n'est pas un executable Windows valide.", false);
+    }
     if (!fileExists(opt.target)) return fail(L"Le lanceur a remplacer est introuvable.", false);
 
     logLine(L"Attente de la fermeture du lanceur...");
@@ -283,17 +313,20 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     }
     logLine(L"Nouveau lanceur installe");
 
+    if (!opt.noRestart) {
+        if (!relaunch(opt.restart, opt.updatedFrom)) {
+            logLine(L"Ancienne version conservee dans " + fileName(backup));
+            return fail(L"Le nouveau lanceur est installe mais n'a pas pu etre relance. "
+                        L"L'ancienne version est conservee dans " + fileName(backup) + L".",
+                        false);
+        }
+    }
+
     if (!deleteWithRetry(backup, 20, 150)) {
         logLine(L"Ancienne version conservee dans " + fileName(backup) +
                 L" (suppression impossible)");
     } else {
         logLine(L"Ancienne version supprimee");
-    }
-
-    if (!opt.noRestart) {
-        if (!relaunch(opt.restart, opt.updatedFrom)) {
-            return fail(L"Le nouveau lanceur est installe mais n'a pas pu etre relance.", false);
-        }
     }
 
     logLine(L"--- AuroraUpdater termine ---");

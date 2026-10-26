@@ -79,12 +79,12 @@ version.
   "publishedAt": "2026-10-26",
   "notes": "Nouveautés de la version…",
   "launcher": {
-    "url": "https://raw.githubusercontent.com/xenoxre/Aurora-laucnher/main/dist/AuroraLauncher.exe",
+    "url": "https://raw.githubusercontent.com/xenoxre/Aurora-laucnher/main/dist/AuroraLauncher.exe?v=2.0.0",
     "size": 3379712,
     "sha256": "empreinte-sha256-hexadécimale"
   },
   "updater": {
-    "url": "https://raw.githubusercontent.com/xenoxre/Aurora-laucnher/main/dist/AuroraUpdater.exe",
+    "url": "https://raw.githubusercontent.com/xenoxre/Aurora-laucnher/main/dist/AuroraUpdater.exe?v=2.0.0",
     "size": 243200,
     "sha256": "empreinte-sha256-hexadécimale"
   }
@@ -92,9 +92,11 @@ version.
 ```
 
 Le champ `size` et le SHA-256 sont obligatoires. Les URL distantes doivent être
-en HTTPS (HTTP n'est accepté que pour `localhost`, afin de tester). Une variable
-d'environnement `AURORA_UPDATE_MANIFEST` permet de pointer vers un fichier local
-ou une autre URL pendant les tests.
+en HTTPS (HTTP n'est accepté que pour `localhost`, afin de tester). Les URL des
+binaires incluent `?v=<version>` et le manifeste est lu avec un paramètre
+anti-cache, afin qu'une publication soit visible immédiatement malgré le cache
+de GitHub Raw. Une variable d'environnement `AURORA_UPDATE_MANIFEST` permet de
+pointer vers un fichier local ou une autre URL pendant les tests.
 
 ### Publier une version
 

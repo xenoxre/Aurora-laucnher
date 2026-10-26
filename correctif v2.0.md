@@ -31,8 +31,9 @@ jour elle-même depuis son dépôt GitHub, sans télémétrie et sans service ti
 
 - `AuroraUpdater.exe` est un petit exécutable Win32 autonome (environ 240 Ko).
 - Il attend la fermeture du lanceur (PID), déplace l'ancien exécutable en
-  `.old`, installe le nouveau, supprime l'ancien puis relance le lanceur.
-- En cas d'échec du remplacement, l'ancienne version est restaurée.
+  `.old`, installe le nouveau, le relance puis supprime l'ancien.
+- En cas d'échec du remplacement, l'ancienne version est restaurée. Si la
+  relance échoue, l'ancienne version est conservée en `.old`.
 - Toutes les opérations sont tracées dans `update.log` à côté du lanceur.
 - Le lanceur affiche un toast « Mise à jour installée » au démarrage suivant.
 
@@ -76,7 +77,8 @@ Nouveau fichier à la racine du dépôt : `update-version.json`.
 
 Le manifeste accepte aussi `changelog` comme alias de `notes` et `minVersion`
 pour une future migration minimale. Le champ `schema` doit valoir `1` et le
-canal doit être `stable` (ou vide).
+canal doit être `stable` (ou vide). Les URL des binaires sont versionnées
+(`?v=2.0.0`) et le manifeste est demandé avec un paramètre anti-cache.
 
 ## Publication
 
@@ -129,7 +131,6 @@ puis commit et pousse. `dist/` est volontairement versionné pour que les liens
 
 - La version 1.0.1 doit être remplacée manuellement une première fois.
 - Les binaires ne sont pas signés Authenticode.
-- GitHub Raw peut mettre le manifeste en cache quelques minutes après un push.
 - Le dépôt GitHub est la racine de confiance ; sa compromission reste un risque.
 - Le mode `--no-update-check` est réservé aux tests et au dépannage.
 
