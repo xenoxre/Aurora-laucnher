@@ -249,8 +249,8 @@ std::wstring ManifestUrl() {
         const std::wstring value = trimCopy(env);
         if (!value.empty()) return value;
     }
-    // Parametre anti-cache : GitHub Raw conserve les fichiers quelques minutes.
-    // Chaque verification obtient ainsi le manifeste courant.
+    // Parametre anti-cache local. GitHub Raw peut toutefois conserver le
+    // manifeste jusqu'a cinq minutes : la verification suivante le rafraichit.
     return std::wstring(AURORA_UPDATE_MANIFEST_URL) + L"?t=" + std::to_wstring(GetTickCount64());
 }
 

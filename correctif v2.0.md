@@ -78,7 +78,7 @@ Nouveau fichier à la racine du dépôt : `update-version.json`.
 Le manifeste accepte aussi `changelog` comme alias de `notes` et `minVersion`
 pour une future migration minimale. Le champ `schema` doit valoir `1` et le
 canal doit être `stable` (ou vide). Les URL des binaires sont versionnées
-(`?v=2.0.0`) et le manifeste est demandé avec un paramètre anti-cache.
+(`?v=2.0.0`) pour limiter la réutilisation d'un fichier en cache.
 
 ## Publication
 
@@ -131,6 +131,7 @@ puis commit et pousse. `dist/` est volontairement versionné pour que les liens
 
 - La version 1.0.1 doit être remplacée manuellement une première fois.
 - Les binaires ne sont pas signés Authenticode.
+- GitHub Raw peut conserver le manifeste jusqu'à cinq minutes après un push.
 - Le dépôt GitHub est la racine de confiance ; sa compromission reste un risque.
 - Le mode `--no-update-check` est réservé aux tests et au dépannage.
 

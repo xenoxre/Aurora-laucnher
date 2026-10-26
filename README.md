@@ -93,10 +93,11 @@ version.
 
 Le champ `size` et le SHA-256 sont obligatoires. Les URL distantes doivent être
 en HTTPS (HTTP n'est accepté que pour `localhost`, afin de tester). Les URL des
-binaires incluent `?v=<version>` et le manifeste est lu avec un paramètre
-anti-cache, afin qu'une publication soit visible immédiatement malgré le cache
-de GitHub Raw. Une variable d'environnement `AURORA_UPDATE_MANIFEST` permet de
-pointer vers un fichier local ou une autre URL pendant les tests.
+binaires incluent `?v=<version>` pour éviter de réutiliser un fichier mis en
+cache. GitHub Raw peut néanmoins conserver le manifeste lui-même jusqu'à cinq
+minutes après un push : une vérification ultérieure le récupère. Une variable
+d'environnement `AURORA_UPDATE_MANIFEST` permet de pointer vers un fichier local
+ou une autre URL pendant les tests.
 
 ### Publier une version
 
