@@ -38,6 +38,7 @@ static void printUsage() {
     wprintf(L"  --launch <instance>   Lancer une instance\n");
     wprintf(L"  --ping <hote[:port]>  Pinger un serveur\n");
     wprintf(L"  --create-instance <nom>:<version> Creer une instance\n");
+    wprintf(L"  --no-update-check     Ne pas verifier les mises a jour au demarrage\n");
 }
 
 static std::wstring findArg(int argc, wchar_t** argv, const std::wstring& name) {
@@ -147,6 +148,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int) {
     opt.screenshotPath = findArg(argc, argv, L"--screenshot");
     opt.startPage = findArg(argc, argv, L"--page");
     opt.uiTest = hasArg(argc, argv, L"--uitest");
+    opt.noUpdateCheck = hasArg(argc, argv, L"--no-update-check");
+    opt.updatedFrom = findArg(argc, argv, L"--updated-from");
     {
         std::wstring delay = findArg(argc, argv, L"--screenshot-delay");
         if (!delay.empty()) opt.screenshotDelayMs = _wtoi(delay.c_str());

@@ -304,6 +304,76 @@ void DrawSettingsAbout(Bridge* bridge) {
     ImGui::SameLine();
     if (ActionButton("Dossier des journaux", 240.0f * Dpi(), 34.0f * Dpi()))
         bridge->openFolder(fs::path(Logger::instance().logFilePath()).parent_path());
+
+    // Mises à jour -------------------------------------------------------------
+    auto& st = bridge->state();
+    auto& cfg = bridge->config();
+
+    ImGui::Dummy(ImVec2(0, 26.0f * Dpi()));
+    ImGui::Separator();
+    ImGui::Dummy(ImVec2(0, 12.0f * Dpi()));
+    ImGui::TextDisabled("MISES À JOUR");
+    ImGui::Spacing();
+    ImGui::Text("Version actuelle : " AURORA_VERSION);
+
+    if (st.updateChecking) {
+        SpinnerText("Vérification des mises à jour…");
+    } else if (!st.updateError.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, Danger);
+        ImGui::TextWrapped("%s", U(st.updateError).c_str());
+        ImGui::PopStyleColor();
+    } else if (st.updateAvailable) {
+        ImGui::PushStyleColor(ImGuiCol_Text, Accent);
+        ImGui::Text("Version %s disponible", U(st.updateVersion).c_str());
+        ImGui::PopStyleColor();
+        ImGui::TextDisabled("Téléchargement vérifié par empreinte SHA-256.");
+        if (!st.updateNotes.empty()) {
+            ImGui::BeginChild("##update_notes_settings", ImVec2(0, 92.0f * Dpi()), true);
+            ImGui::TextWrapped("%s", U(st.updateNotes).c_str());
+            ImGui::EndChild();
+        }
+    } else {
+        ImGui::TextDisabled("%s", st.updateStatus.empty() ? "Aurora est à jour."
+                                                          : U(st.updateStatus).c_str());
+    }
+
+    if (st.updateDownloading) {
+        ImGui::Spacing();
+        ImGui::ProgressBar(st.updateProgress, ImVec2(0, 10.0f * Dpi()), "");
+        ImGui::TextDisabled("%s", U(st.updateStatus).c_str());
+        if (GhostButton("Annuler le téléchargement", 230.0f * Dpi(), 32.0f * Dpi()))
+            bridge->cancelUpdate();
+    } else if (st.updateReady) {
+        ImGui::PushStyleColor(ImGuiCol_Text, Ok);
+        ImGui::TextUnformatted("Mise à jour téléchargée, prête à être installée.");
+        ImGui::PopStyleColor();
+    }
+
+    ImGui::Spacing();
+    if (st.updateReady) {
+        if (PrimaryButton("Redémarrer et installer", 240.0f * Dpi(), 38.0f * Dpi()))
+            bridge->installUpdate();
+    } else if (st.updateAvailable && !st.updateDownloading) {
+        if (PrimaryButton("Télécharger la mise à jour", 240.0f * Dpi(), 38.0f * Dpi()))
+            bridge->downloadUpdate();
+        ImGui::SameLine();
+        if (GhostButton("Ignorer cette version", 190.0f * Dpi(), 38.0f * Dpi()))
+            bridge->skipUpdateVersion();
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Ne plus proposer cette version au démarrage");
+    }
+
+    ImGui::Spacing();
+    bool checkUpdates = cfg.checkUpdates;
+    if (ImGui::Checkbox("Vérifier les mises à jour au démarrage", &checkUpdates))
+        bridge->setCheckUpdates(checkUpdates);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Une requête HTTPS vers le dépôt GitHub, aucune télémétrie.");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(st.updateChecking || st.updateDownloading);
+    if (GhostButton("Vérifier maintenant", 180.0f * Dpi(), 32.0f * Dpi()))
+        bridge->checkUpdates(true);
+    ImGui::EndDisabled();
 }
 
 // -------------------------------------------------------------------- page ---

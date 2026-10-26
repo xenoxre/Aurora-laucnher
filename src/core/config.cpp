@@ -114,6 +114,8 @@ static Json configToJson(const Config& c) {
     j.set("modsQuery", c.modsQuery);
     j.set("autoScrollConsole", c.autoScrollConsole);
     j.set("showSnapshots", c.showSnapshots);
+    j.set("checkUpdates", c.checkUpdates);
+    j.set("skippedUpdateVersion", c.skippedUpdateVersion);
     Json servers = Json::array();
     for (auto& s : c.localServers) {
         Json o = Json::object();
@@ -152,6 +154,8 @@ static void configFromJson(const Json& j, Config& c) {
     c.modsQuery = j["modsQuery"].asWString();
     c.autoScrollConsole = j["autoScrollConsole"].asBool(true);
     c.showSnapshots = j["showSnapshots"].asBool(false);
+    c.checkUpdates = j["checkUpdates"].asBool(true);
+    c.skippedUpdateVersion = j["skippedUpdateVersion"].asWString();
     c.localServers.clear();
     for (auto& s : j["localServers"].items()) {
         LocalServerConfig l;

@@ -1,0 +1,17 @@
+{
+    "schema":  1,
+    "version":  "2.0.0",
+    "channel":  "stable",
+    "publishedAt":  "2026-10-26",
+    "notes":  "Aurora 2.0.0\n- Mise à jour automatique depuis GitHub à chaque démarrage.\n- Téléchargement vérifié par SHA-256.\n- AuroraUpdater.exe remplace l'ancien exécutable et relance le lanceur.\n- Section « Mises à jour » dans les paramètres.\n- 69 tests hors ligne.",
+    "launcher":  {
+                     "url":  "https://raw.githubusercontent.com/xenoxre/Aurora-laucnher/main/dist/AuroraLauncher.exe",
+                     "size":  3386368,
+                     "sha256":  "5a801e9596e2cd84fd613cf2d951a106d73655370328af9e1e073fb6c7be2764"
+                 },
+    "updater":  {
+                    "url":  "https://raw.githubusercontent.com/xenoxre/Aurora-laucnher/main/dist/AuroraUpdater.exe",
+                    "size":  243200,
+                    "sha256":  "30ac93611f9bd332ed2d4856e6163493b40f1579bd35033d91a5dee1b9ad59f8"
+                }
+}

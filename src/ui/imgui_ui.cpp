@@ -214,6 +214,92 @@ void DrawSidebar(Bridge* bridge) {
 
 // ----------------------------------------------------------------- modals ---
 
+void DrawUpdateModal(Bridge* bridge) {
+    auto& st = bridge->state();
+    UiState& ui = State();
+
+    if (st.updatePromptOpen && !ui.updateModalOpened) {
+        ImGui::OpenPopup("Mise à jour disponible");
+        ui.updateModalOpened = true;
+    }
+    if (!st.updatePromptOpen) ui.updateModalOpened = false;
+
+    if (ImGui::BeginPopupModal("Mise à jour disponible", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.96f, 0.98f, 1.0f, 1.0f));
+        ImGui::Text("Aurora Launcher %s", U(st.updateVersion).c_str());
+        ImGui::PopStyleColor();
+        ImGui::TextDisabled("Version actuelle : " AURORA_VERSION);
+        ImGui::Spacing();
+
+        if (!st.updateNotes.empty()) {
+            ImGui::TextDisabled("Nouveautés");
+            ImGui::BeginChild("##update_notes", ImVec2(520.0f * Dpi(), 160.0f * Dpi()), true);
+            ImGui::TextWrapped("%s", U(st.updateNotes).c_str());
+            ImGui::EndChild();
+        }
+
+        if (!st.updateError.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, Danger);
+            ImGui::TextWrapped("%s", U(st.updateError).c_str());
+            ImGui::PopStyleColor();
+        }
+
+        if (st.updateDownloading) {
+            ImGui::Spacing();
+            ImGui::ProgressBar(st.updateProgress, ImVec2(520.0f * Dpi(), 10.0f * Dpi()), "");
+            ImGui::TextDisabled("%s", U(st.updateStatus).c_str());
+        } else if (st.updateReady) {
+            ImGui::PushStyleColor(ImGuiCol_Text, Ok);
+            ImGui::TextUnformatted("Téléchargement terminé. Le lanceur va redémarrer.");
+            ImGui::PopStyleColor();
+        } else if (!st.updateStatus.empty()) {
+            ImGui::TextDisabled("%s", U(st.updateStatus).c_str());
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        if (st.updateReady) {
+            if (PrimaryButton("Redémarrer et installer", 250.0f * Dpi(), 38.0f * Dpi()))
+                bridge->installUpdate();
+        } else if (st.updateDownloading) {
+            if (GhostButton("Annuler le téléchargement", 240.0f * Dpi(), 38.0f * Dpi()))
+                bridge->cancelUpdate();
+        } else {
+            if (PrimaryButton("Télécharger", 170.0f * Dpi(), 38.0f * Dpi()))
+                bridge->downloadUpdate();
+        }
+        if (!st.updateDownloading) {
+            ImGui::SameLine();
+            if (GhostButton("Plus tard", 130.0f * Dpi(), 38.0f * Dpi())) {
+                bridge->dismissUpdatePrompt();
+                ui.updateModalOpened = false;
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
+        if (!st.updateDownloading && !st.updateReady) {
+            ImGui::Spacing();
+            if (ImGui::SmallButton("Ignorer cette version")) {
+                bridge->skipUpdateVersion();
+                ui.updateModalOpened = false;
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Ne plus proposer cette version au démarrage");
+        }
+
+        ImGui::EndPopup();
+    }
+
+    if (ui.updateModalOpened && !ImGui::IsPopupOpen("Mise à jour disponible")) {
+        ui.updateModalOpened = false;
+        if (st.updatePromptOpen) bridge->dismissUpdatePrompt();
+    }
+}
+
 void DrawConfirmModal(Bridge* bridge) {
     UiState& ui = State();
 
@@ -403,6 +489,7 @@ void DrawModals(Bridge* bridge) {
         ImGui::EndPopup();
     }
 
+    DrawUpdateModal(bridge);
     DrawConfirmModal(bridge);
 }
 

@@ -52,6 +52,20 @@ struct BridgeState {
     bool localServerRunning = false;
     std::wstring localServerName;
 
+    // Mises a jour
+    bool updateConfigured = false;
+    bool updateChecking = false;
+    bool updateAvailable = false;
+    bool updateDownloading = false;
+    bool updateReady = false;
+    bool updatePromptOpen = false;
+    bool updateSkipped = false;
+    std::wstring updateVersion;
+    std::wstring updateNotes;
+    std::wstring updateStatus;
+    std::wstring updateError;
+    float updateProgress = 0.0f;
+
     std::vector<std::wstring> jobStatuses;
     std::vector<std::wstring> toasts;
     bool toastError = false;
@@ -96,6 +110,13 @@ public:
     void startMicrosoftLogin();
     void cancelMicrosoftLogin();
     void detectJava();
+    void checkUpdates(bool manual);
+    void downloadUpdate();
+    void cancelUpdate();
+    void installUpdate();
+    void dismissUpdatePrompt();
+    void skipUpdateVersion();
+    void setCheckUpdates(bool on);
     void clearLogs();
     void setAutoScroll(bool on);
     void setLogFilter(int filter);

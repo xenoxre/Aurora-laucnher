@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "core/util.h"
 #include "imgui.h"
+#include "update/updater.h"
 
 using namespace aurora;
 
@@ -77,6 +78,19 @@ void Bridge::refresh() {
 
     state_.localServerRunning = app_->localServer_ && app_->localServer_->running();
     state_.localServerName = app_->localServerName_;
+
+    state_.updateConfigured = update::IsConfigured();
+    state_.updateChecking = app_->updateChecking_;
+    state_.updateAvailable = app_->updateAvailable_;
+    state_.updateDownloading = app_->updateDownloading_;
+    state_.updateReady = app_->updateReady_;
+    state_.updatePromptOpen = app_->updatePromptOpen_;
+    state_.updateSkipped = app_->updateSkipped();
+    state_.updateVersion = app_->updateInfo_.version;
+    state_.updateNotes = app_->updateInfo_.notes;
+    state_.updateStatus = app_->updateStatus_;
+    state_.updateError = app_->updateError_;
+    state_.updateProgress = app_->updateProgress_.load();
 
     state_.jobStatuses.clear();
     for (auto& j : app_->jobs_.infos()) state_.jobStatuses.push_back(j.status);
@@ -203,4 +217,12 @@ void Bridge::setModsInstance(const std::wstring& id){ if(!app_)return; app_->mod
 void Bridge::saveConfig(){ if(!app_)return; app_->saveConfigNow(); refresh(); }
 void Bridge::openFolder(const std::filesystem::path& p){ openInExplorer(p); }
 void Bridge::createLocalServer(const std::wstring& name,const std::wstring& version,int port,int ram){ if(!app_)return; std::wstring nn=name; if(nn.empty()) nn=L"Serveur"; std::wstring nv=version; if(nv.empty()) nv=L"1.21.1"; app_->serverName_=nn; app_->serverVersion_=nv; app_->serverPort_=std::to_wstring(port); app_->serverRam_=ram; app_->createServerFromDialog(); }
+
+void Bridge::checkUpdates(bool manual) { if (!app_) return; app_->checkForUpdates(manual); refresh(); }
+void Bridge::downloadUpdate() { if (!app_) return; app_->downloadUpdate(); refresh(); }
+void Bridge::cancelUpdate() { if (!app_) return; app_->cancelUpdate(); refresh(); }
+void Bridge::installUpdate() { if (!app_) return; app_->installUpdate(); }
+void Bridge::dismissUpdatePrompt() { if (!app_) return; app_->dismissUpdatePrompt(); refresh(); }
+void Bridge::skipUpdateVersion() { if (!app_) return; app_->skipUpdateVersion(); refresh(); }
+void Bridge::setCheckUpdates(bool on) { if (!app_) return; app_->config_.checkUpdates = on; app_->saveConfigNow(); refresh(); }
 } // namespace aurora::ui

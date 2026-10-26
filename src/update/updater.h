@@ -1,9 +1,9 @@
 #pragma once
 // Aurora Launcher - module de mise a jour.
 //
-// Le manifeste (latest.json) est heberge sur GitHub Releases. Il est verifie
-// (HTTPS, taille, SHA-256) avant tout telechargement puis avant installation.
-// Aucune donnee personnelle n'est envoyee : une seule requete GET.
+// Le manifeste (update-version.json) est heberge a la racine du depot GitHub.
+// Il est verifie (HTTPS, taille, SHA-256) avant tout telechargement puis avant
+// installation. Aucune donnee personnelle n'est envoyee : une seule requete GET.
 
 #include <cstdint>
 #include <filesystem>

@@ -41,6 +41,7 @@ struct UiState {
     bool openOffline = false;
     bool openMs = false;
     bool openServer = false;
+    bool updateModalOpened = false;
 
     // Dialog fields ----------------------------------------------------------
     char newName[64] = "Nouvelle instance";

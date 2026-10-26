@@ -1,14 +1,14 @@
 #pragma once
-// Emplacement du manifeste de mise a jour (GitHub Releases).
+// Emplacement du manifeste de mise a jour.
 //
 // Depot : https://github.com/xenoxre/Aurora-laucnher
 //
-// Publie une release contenant AuroraLauncher.exe, AuroraUpdater.exe et
-// latest.json (voir la feuille de route v2.0). L'URL ci-dessous pointe
-// toujours vers l'asset latest.json de la derniere release publiee.
+// Le fichier update-version.json est publie a la racine du depot (branche
+// main). Il contient la version disponible et les exécutables hebergés dans
+// dist/. Le lanceur verifie ce manifeste a chaque demarrage.
 //
 // Pour les tests locaux, definis AURORA_UPDATE_MANIFEST (variable
-// d'environnement) vers un fichier latest.json ou une URL HTTPS.
+// d'environnement) vers un fichier update-version.json ou une URL HTTPS.
 
 #define AURORA_UPDATE_MANIFEST_URL \
-    L"https://github.com/xenoxre/Aurora-laucnher/releases/latest/download/latest.json"
+    L"https://raw.githubusercontent.com/xenoxre/Aurora-laucnher/main/update-version.json"

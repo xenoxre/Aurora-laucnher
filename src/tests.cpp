@@ -8,9 +8,11 @@
 #include "core/sha1.h"
 #include "core/util.h"
 #include "core/zip.h"
+#include "update/updater.h"
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -77,6 +79,11 @@ void testHashAndBase64() {
     check(formatUuid(L"b50ad385829d3141a2167e7d7539ba7f") ==
               L"b50ad385-829d-3141-a216-7e7d7539ba7f",
           L"formatage UUID");
+
+    std::string digest;
+    check(sha256Bytes("abc", 3, digest) &&
+              digest == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+          L"SHA-256 de « abc »", utf8ToWide(digest));
 }
 
 void testMaven() {
@@ -214,6 +221,72 @@ void testServersAndFormatting() {
           L"validation pseudo");
 }
 
+void testUpdates() {
+    section(L"Mises a jour");
+    using namespace aurora::update;
+
+    check(CompareVersions(L"1.10.0", L"1.9.9") > 0, L"comparaison 1.10 > 1.9");
+    check(CompareVersions(L"2.0.0", L"2.0.0") == 0, L"comparaison egale");
+    check(CompareVersions(L"2.0.0-beta", L"2.0.0") < 0, L"prerelease < release");
+    check(CompareVersions(L"2.1", L"2.0.9") > 0, L"comparaison 2.1 > 2.0.9");
+    check(IsValidVersion(L"2.0.0") && !IsValidVersion(L"deux") && !IsValidVersion(L""),
+          L"validation de version");
+
+    std::wstring dirStr = tempTestDir();
+    fs::path dir(dirStr);
+    fs::path source = dir / L"new-launcher.bin";
+    fs::path manifestPath = dir / L"update-version.json";
+    std::string payload = "Aurora update payload";
+    check(writeFileBytes(source, Bytes(payload.begin(), payload.end())), L"ecriture source");
+
+    std::string hash;
+    check(sha256File(source, hash), L"empreinte source");
+    std::wstring url = L"file:///" + source.wstring();
+    std::replace(url.begin(), url.end(), L'\\', L'/');
+    const std::string size = std::to_string(fileSize(source));
+
+    std::string manifest =
+        "{\"schema\":1,\"version\":\"3.1.4\",\"channel\":\"stable\","
+        "\"notes\":\"Notes de test\","
+        "\"launcher\":{\"url\":\"" + wideToUtf8(url) + "\",\"size\":" + size +
+        ",\"sha256\":\"" + hash + "\"},"
+        "\"updater\":{\"url\":\"" + wideToUtf8(url) + "\",\"size\":" + size +
+        ",\"sha256\":\"" + hash + "\"}}";
+    check(writeFileText(manifestPath, manifest), L"ecriture manifeste");
+
+    Info info;
+    std::wstring err;
+    check(ParseManifest(manifest, info, err), L"analyse manifeste", err);
+    check(info.version == L"3.1.4" && info.launcher.valid() && info.updater.valid(),
+          L"champs du manifeste");
+    check(info.notes == L"Notes de test", L"notes du manifeste");
+
+    Info fetched;
+    check(FetchManifest(manifestPath.wstring(), fetched, err), L"lecture manifeste local", err);
+    check(fetched.version == info.version && fetched.launcher.sha256 == info.launcher.sha256,
+          L"manifeste local coherent");
+
+    fs::path dest = dir / L"downloaded.bin";
+    check(DownloadAsset(info.launcher, dest, {}, {}, err), L"telechargement local verifie", err);
+    std::string copied;
+    check(readFileText(dest, copied) && copied == payload, L"contenu telecharge identique");
+
+    Info corrupt = info;
+    corrupt.launcher.sha256 = std::wstring(64, L'0');
+    fs::path badDest = dir / L"bad.bin";
+    check(!DownloadAsset(corrupt.launcher, badDest, {}, {}, err),
+          L"empreinte invalide refusee");
+    check(!pathExists(badDest), L"fichier corrompu non conserve");
+
+    const std::string badManifest =
+        "{\"schema\":1,\"version\":\"3.1.4\",\"launcher\":{\"url\":\"https://x.test/a\","
+        "\"size\":10,\"sha256\":\"abc\"}}";
+    Info bad;
+    check(!ParseManifest(badManifest, bad, err), L"manifeste incomplet refuse");
+
+    removeAll(dir);
+}
+
 void testConfig() {
     section(L"Configuration");
     std::wstring dirStr = tempTestDir();
@@ -224,6 +297,8 @@ void testConfig() {
     cfg.accounts[0].name = L"Testeur";
     cfg.accounts[0].uuid = offlineUuid(L"Testeur");
     cfg.ramMb = 6144;
+    cfg.checkUpdates = false;
+    cfg.skippedUpdateVersion = L"9.9.9";
     cfg.localServers.push_back({ L"Mon serveur", L"1.20.4", L"mon-serveur", 25566, 2048, false });
     std::wstring err;
     check(saveConfig(paths, cfg, err), L"écriture config.json", err);
@@ -234,6 +309,8 @@ void testConfig() {
           L"valeurs conservées");
     check(loaded.localServers.size() == 1 && loaded.localServers[0].port == 25566,
           L"serveurs locaux conservés");
+    check(!loaded.checkUpdates && loaded.skippedUpdateVersion == L"9.9.9",
+          L"préférences de mise à jour conservées");
     removeAll(fs::path(dirStr));
 }
 
@@ -252,6 +329,7 @@ int runSelfTests(bool verbose) {
     testZip();
     testNbt();
     testServersAndFormatting();
+    testUpdates();
     testConfig();
     std::wprintf(L"\n====================================\n");
     std::wprintf(L"Résultat : %d réussi(s), %d échec(s)\n", g_pass, g_fail);

@@ -72,6 +72,8 @@ struct Config {
     std::vector<LocalServerConfig> localServers;
     bool autoScrollConsole = true;
     bool showSnapshots = false;
+    bool checkUpdates = true;
+    std::wstring skippedUpdateVersion;
 
     Account& activeAccount();
     const Account& activeAccount() const;

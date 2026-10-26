@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(AuroraLauncher VERSION 1.0.1 LANGUAGES C CXX RC)
+project(AuroraLauncher VERSION 2.0.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -73,7 +73,7 @@ target_include_directories(AuroraLauncher PRIVATE
 target_compile_definitions(AuroraLauncher PRIVATE
   UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
   _WIN32_WINNT=0x0A00 WINVER=0x0A00
-  AURORA_VERSION="1.0.1"
+  AURORA_VERSION="2.0.0"
   IMGUI_DEFINE_MATH_OPERATORS
 )
 
@@ -116,6 +116,7 @@ set(CLI_SOURCES
   src/core/instance.cpp
   src/core/process.cpp
   src/core/uninstall.cpp
+  src/update/updater.cpp
   third_party/miniz.c
 )
 
@@ -126,7 +127,7 @@ target_include_directories(AuroraLauncherCli PRIVATE src third_party resources)
 target_compile_definitions(AuroraLauncherCli PRIVATE
   UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
   _WIN32_WINNT=0x0A00 WINVER=0x0A00
-  AURORA_VERSION="1.0.1"
+  AURORA_VERSION="2.0.0"
   AURORA_CLI=1
 )
 
@@ -148,3 +149,10 @@ target_include_directories(AuroraUninstall PRIVATE src third_party resources)
 target_compile_definitions(AuroraUninstall PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_link_options(AuroraUninstall PRIVATE -static -static-libgcc -static-libstdc++ -mwindows -municode)
 target_link_libraries(AuroraUninstall PRIVATE shell32 user32 bcrypt)
+
+# Assistant de mise a jour : petit binaire sans dependance au reste du projet.
+add_executable(AuroraUpdater WIN32 src/update/updater_main.cpp)
+target_compile_definitions(AuroraUpdater PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(AuroraUpdater PRIVATE -Wall -Wextra -O2 -ffunction-sections -fdata-sections)
+target_link_options(AuroraUpdater PRIVATE -static -static-libgcc -static-libstdc++ -Wl,--gc-sections -mwindows -municode -s)
+target_link_libraries(AuroraUpdater PRIVATE shell32 user32)

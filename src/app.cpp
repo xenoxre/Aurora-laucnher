@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <iterator>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <thread>
@@ -89,6 +90,15 @@ bool App::init(HINSTANCE instance, const AppOptions& options, std::wstring& erro
     serverPort_ = L"25565";
     serverName_ = L"Mon serveur";
     serverRam_ = 4096;
+
+    if (!options_.updatedFrom.empty()) {
+        notify(L"Mise à jour installée : " AURORA_VERSION_W, false);
+        logSuccess(L"Mise à jour appliquée (depuis " + options_.updatedFrom + L")", L"Mise à jour");
+    }
+    if (!options_.noUpdateCheck && !options_.uiTest && !options_.demo &&
+        options_.screenshotPath.empty() && config_.checkUpdates) {
+        updateAutoCheckAt_ = nowSeconds() + 2.0;
+    }
     return true;
 }
 
@@ -828,8 +838,252 @@ void App::launchInstance(const Instance& instance, std::wstring host, int port) 
     });
 }
 
+// ---------------------------------------------------------------- mises a jour ---
+
+bool App::updateSkipped() const {
+    return !config_.skippedUpdateVersion.empty() &&
+           config_.skippedUpdateVersion == updateInfo_.version;
+}
+
+void App::checkForUpdates(bool manual) {
+    if (updateChecking_ || updateDownloading_) return;
+    if (updateReady_) {
+        if (manual) notify(L"La mise à jour est déjà téléchargée", false);
+        return;
+    }
+
+    updateChecking_ = true;
+    updateError_.clear();
+    updateStatus_ = L"Vérification…";
+
+    const std::wstring source = update::ManifestUrl();
+    auto info = std::make_shared<update::Info>();
+    jobs_.submit(L"Vérification des mises à jour", [source, info](JobContext& ctx) {
+        std::wstring err;
+        ctx.report(L"Lecture du manifeste…", -1.0f);
+        if (!update::FetchManifest(source, *info, err)) {
+            ctx.fail(err.empty() ? L"Manifeste de mise à jour illisible" : err);
+            return;
+        }
+        ctx.report(L"Manifeste vérifié", 1.0f);
+    }, [this, info, manual](bool ok, const std::wstring& msg) {
+        updateChecking_ = false;
+        if (!ok) {
+            updateError_ = msg;
+            updateStatus_ = L"Vérification impossible";
+            logWarn(L"Vérification de mise à jour impossible : " + msg, L"Mise à jour");
+            if (manual) notify(L"Vérification impossible : " + msg, true);
+            return;
+        }
+
+        const bool newer = update::CompareVersions(info->version, AURORA_VERSION_W) > 0;
+        const bool stable = info->channel.empty() || info->channel == L"stable";
+        const bool skipped = !config_.skippedUpdateVersion.empty() &&
+                             info->version == config_.skippedUpdateVersion;
+        updateInfo_ = *info;
+        updateError_.clear();
+
+        if (newer && stable) {
+            updateAvailable_ = true;
+            updateReady_ = false;
+            updateStatus_ = L"Mise à jour disponible";
+            if (manual && skipped) {
+                config_.skippedUpdateVersion.clear();
+                saveConfigNow();
+            }
+            const bool hidePrompt = skipped && !manual;
+            updatePromptOpen_ = !hidePrompt;
+            if (hidePrompt) {
+                updateAvailable_ = false;
+                updateStatus_ = L"Version ignorée";
+            } else {
+                logInfo(L"Mise à jour disponible : " + info->version, L"Mise à jour");
+                if (manual) notify(L"Mise à jour disponible : " + info->version, false);
+            }
+        } else {
+            updateAvailable_ = false;
+            updatePromptOpen_ = false;
+            updateStatus_ = L"À jour";
+            if (manual) {
+                notify(std::wstring(L"Aucune mise à jour disponible (") + AURORA_VERSION_W + L")",
+                       false);
+            }
+        }
+    });
+}
+
+void App::downloadUpdate() {
+    if (!updateAvailable_ || updateDownloading_ || updateReady_) return;
+    if (!updateInfo_.launcher.valid() || !updateInfo_.updater.valid()) {
+        updateError_ = L"Le manifeste ne contient pas tous les fichiers nécessaires";
+        updateStatus_ = L"Manifeste incomplet";
+        notify(L"Manifeste de mise à jour incomplet", true);
+        return;
+    }
+
+    const update::Info info = updateInfo_;
+    const fs::path dir = paths_.root / L"updates";
+    const fs::path launcher = dir / (L"AuroraLauncher-" + info.version + L".exe");
+    const fs::path updater = dir / (L"AuroraUpdater-" + info.version + L".exe");
+
+    updateDownloading_ = true;
+    updateReady_ = false;
+    updateError_.clear();
+    updateStatus_ = L"Téléchargement…";
+    updateProgress_.store(0.0f);
+
+    updateJobId_ = jobs_.submit(L"Téléchargement de la mise à jour", [this, info, launcher, updater](JobContext& ctx) {
+        std::wstring err;
+        ctx.report(L"Téléchargement du lanceur…", 0.0f);
+        if (!update::DownloadAsset(info.launcher, launcher,
+                                   [&](uint64_t received, uint64_t total) {
+                                       float p = total ? (float)((double)received / (double)total) : -1.0f;
+                                       if (p >= 0.0f) updateProgress_.store(p * 0.85f);
+                                       ctx.report(L"Téléchargement du lanceur…", p * 0.85f);
+                                   },
+                                   [&]() { return ctx.cancelled(); }, err)) {
+            ctx.fail(err.empty() ? L"Téléchargement du lanceur impossible" : err);
+            return;
+        }
+        ctx.report(L"Téléchargement de l'assistant…", 0.85f);
+        if (!update::DownloadAsset(info.updater, updater,
+                                   [&](uint64_t received, uint64_t total) {
+                                       float p = total ? (float)((double)received / (double)total) : -1.0f;
+                                       if (p >= 0.0f) updateProgress_.store(0.85f + p * 0.15f);
+                                       ctx.report(L"Téléchargement de l'assistant…", 0.85f + p * 0.15f);
+                                   },
+                                   [&]() { return ctx.cancelled(); }, err)) {
+            ctx.fail(err.empty() ? L"Téléchargement de l'assistant impossible" : err);
+            return;
+        }
+        updateProgress_.store(1.0f);
+        ctx.report(L"Mise à jour prête", 1.0f);
+    }, [this, launcher, updater](bool ok, const std::wstring& msg) {
+        updateDownloading_ = false;
+        updateJobId_ = 0;
+        if (ok) {
+            updateStagedLauncher_ = launcher;
+            updateStagedUpdater_ = updater;
+            updateReady_ = true;
+            updateProgress_.store(1.0f);
+            updateStatus_ = L"Prête à installer";
+            updateError_.clear();
+            logSuccess(L"Mise à jour téléchargée : " + updateInfo_.version, L"Mise à jour");
+            notify(L"Mise à jour téléchargée", false);
+        } else if (msg == L"Annulé") {
+            updateReady_ = false;
+            updateProgress_.store(0.0f);
+            updateError_.clear();
+            updateStatus_ = L"Téléchargement annulé";
+            logInfo(L"Téléchargement de la mise à jour annulé", L"Mise à jour");
+        } else {
+            updateReady_ = false;
+            updateProgress_.store(0.0f);
+            updateError_ = msg;
+            updateStatus_ = L"Échec du téléchargement";
+            logWarn(L"Téléchargement de la mise à jour impossible : " + msg, L"Mise à jour");
+            notify(L"Téléchargement impossible : " + msg, true);
+        }
+    });
+}
+
+void App::cancelUpdate() {
+    if (!updateDownloading_ || updateJobId_ == 0) return;
+    jobs_.cancel(updateJobId_);
+    updateStatus_ = L"Annulation…";
+}
+
+void App::installUpdate() {
+    if (!updateReady_) return;
+
+    wchar_t exePath[MAX_PATH * 4] = {};
+    DWORD len = GetModuleFileNameW(nullptr, exePath, (DWORD)std::size(exePath));
+    if (len == 0 || len >= std::size(exePath)) {
+        notify(L"Impossible de localiser le lanceur", true);
+        return;
+    }
+    const fs::path target(exePath);
+    const fs::path installedUpdater = target.parent_path() / L"AuroraUpdater.exe";
+
+    if (updateStagedUpdater_.empty() || !pathExists(updateStagedUpdater_)) {
+        notify(L"AuroraUpdater.exe est absent du téléchargement", true);
+        return;
+    }
+    if (!updateInfo_.launcher.valid() || !pathExists(updateStagedLauncher_) ||
+        fileSize(updateStagedLauncher_) != updateInfo_.launcher.size) {
+        notify(L"Le lanceur téléchargé est incomplet", true);
+        return;
+    }
+    {
+        std::string digest;
+        if (!sha256File(updateStagedLauncher_, digest) ||
+            toLower(utf8ToWide(digest)) != updateInfo_.launcher.sha256) {
+            notify(L"Le lanceur téléchargé est invalide", true);
+            return;
+        }
+    }
+
+    if (updateInfo_.updater.valid()) {
+        std::string digest;
+        if (!sha256File(updateStagedUpdater_, digest) ||
+            toLower(utf8ToWide(digest)) != updateInfo_.updater.sha256) {
+            notify(L"AuroraUpdater.exe téléchargé est invalide", true);
+            return;
+        }
+    }
+
+    bool copied = false;
+    for (int attempt = 0; attempt < 10 && !copied; ++attempt) {
+        copied = CopyFileW(updateStagedUpdater_.c_str(), installedUpdater.c_str(), FALSE) != 0;
+        if (!copied) sleepMs(200);
+    }
+    if (!copied) {
+        notify(formatW(L"Impossible d'installer AuroraUpdater.exe (erreur %lu)", GetLastError()),
+               true);
+        return;
+    }
+
+    if (updateInfo_.updater.valid()) {
+        std::string digest;
+        if (!sha256File(installedUpdater, digest) ||
+            toLower(utf8ToWide(digest)) != updateInfo_.updater.sha256) {
+            notify(L"AuroraUpdater.exe téléchargé est invalide", true);
+            return;
+        }
+    }
+
+    std::wstring err;
+    if (!update::LaunchUpdaterAndExit(target, updateStagedLauncher_, installedUpdater,
+                                      AURORA_VERSION_W, err)) {
+        notify(L"Installation impossible : " + err, true);
+        return;
+    }
+
+    logInfo(L"Mise à jour " + updateInfo_.version + L" lancée, fermeture du lanceur",
+            L"Mise à jour");
+    saveConfigNow();
+    PostQuitMessage(0);
+}
+
+void App::dismissUpdatePrompt() {
+    updatePromptOpen_ = false;
+}
+
+void App::skipUpdateVersion() {
+    if (updateInfo_.version.empty()) return;
+    config_.skippedUpdateVersion = updateInfo_.version;
+    updateAvailable_ = false;
+    updatePromptOpen_ = false;
+    saveConfigNow();
+    notify(L"Version " + updateInfo_.version + L" ignorée", false);
+}
+
 bool App::needsFrames() {
     jobs_.poll();
+    if (updateAutoCheckAt_ > 0 && nowSeconds() >= updateAutoCheckAt_) {
+        updateAutoCheckAt_ = 0;
+        checkForUpdates(false);
+    }
     processMicrosoftResult();
     // check game exit
     if (game_ && !game_->running() && !gameExitNotified_) {

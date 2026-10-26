@@ -22,6 +22,7 @@
 #include "core/process.h"
 #include "core/server.h"
 #include "core/tasks.h"
+#include "update/updater.h"
 
 namespace aurora {
 
@@ -33,6 +34,8 @@ struct AppOptions {
     int screenshotDelayMs = 2200;
     bool demo = false;
     bool uiTest = false;
+    bool noUpdateCheck = false;
+    std::wstring updatedFrom;
 };
 
 enum class Page { Play = 0, Versions, Mods, Servers, Console, Settings };
@@ -119,6 +122,15 @@ public:
     void startLocalServer(const LocalServerConfig& server);
     void stopLocalServer();
     void detectJava();
+
+    // Mises a jour --------------------------------------------------------------
+    void checkForUpdates(bool manual);
+    void downloadUpdate();
+    void cancelUpdate();
+    void installUpdate();
+    void dismissUpdatePrompt();
+    void skipUpdateVersion();
+    bool updateSkipped() const;
 
     // Pages (implemented in pages_*.cpp) ----------------------------------------
 
@@ -213,6 +225,21 @@ public:
     std::wstring gameInstance_;
     double gameStartedAt_ = 0;
     bool gameExitNotified_ = false;
+
+    // Mises a jour
+    bool updateChecking_ = false;
+    bool updateAvailable_ = false;
+    bool updateDownloading_ = false;
+    bool updateReady_ = false;
+    bool updatePromptOpen_ = false;
+    update::Info updateInfo_;
+    std::wstring updateStatus_;
+    std::wstring updateError_;
+    std::atomic<float> updateProgress_{ 0.0f };
+    fs::path updateStagedLauncher_;
+    fs::path updateStagedUpdater_;
+    int updateJobId_ = 0;
+    double updateAutoCheckAt_ = 0;
 
 private:
     void refreshLogs(bool force);
