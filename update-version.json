@@ -1,6 +1,6 @@
 {
     "schema":  1,
-    "version":  "2.0.1",
+    "version":  "2.0.0",
     "channel":  "stable",
     "publishedAt":  "2026-10-26",
     "notes":  "Aurora 2.0.0\n- Mise a jour automatique depuis GitHub a chaque demarrage.\n- Telechargement verifie par SHA-256.\n- AuroraUpdater.exe remplace l\u0027ancien executable et relance le lanceur.\n- Section Mises a jour dans les parametres.",
