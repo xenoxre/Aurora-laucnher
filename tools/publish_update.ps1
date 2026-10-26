@@ -45,6 +45,10 @@ $sourceVersion = $match.Groups[1].Value
 if ($sourceVersion -ne $Version) {
     throw "src/version.h indique $sourceVersion, pas $Version. Modifiez la version et reconstruisez avant de publier."
 }
+$wideMatch = [regex]::Match($versionHeader, 'AURORA_VERSION_W\s+L"([^"]+)"')
+if (-not $wideMatch.Success -or $wideMatch.Groups[1].Value -ne $Version) {
+    throw "AURORA_VERSION_W dans src/version.h doit aussi valoir $Version."
+}
 
 $cmakeText = Get-Content "CMakeLists.txt" -Raw
 $cmakeVersions = @([regex]::Matches($cmakeText, 'AURORA_VERSION="([^"]+)"') |
